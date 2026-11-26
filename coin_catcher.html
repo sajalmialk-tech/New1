@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ur">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>سکے پکڑو (Coin Catcher)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #0b1220;
+    font-family: Tahoma, "Noto Nastaliq Urdu", "Segoe UI", sans-serif;
+    color: #fff;
+    user-select: none;
+    padding: 10px;
+  }
+
+  /* ===== ایڈ سلاٹس ===== */
+  .ad-slot {
+    width: min(100vw - 20px, 400px);
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ad-note {
+    width: 100%;
+    padding: 14px;
+    border: 2px dashed #334155;
+    border-radius: 10px;
+    color: #94a3b8;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  /* ===== گیم فریم ===== */
+  .game {
+    position: relative;
+    width: min(100vw - 20px, 400px);
+    aspect-ratio: 2 / 3;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,.6);
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 20px;
+    background: rgba(11, 18, 32, .82);
+    backdrop-filter: blur(3px);
+    text-align: center;
+  }
+  .hidden { display: none !important; }
+
+  h1 {
+    font-size: 36px;
+    color: #fde047;
+    text-shadow: 0 4px 0 #b45309;
+  }
+  h2 { font-size: 24px; color: #fde047; }
+  .sub { color: #cbd5e1; font-size: 15px; }
+  .big { font-size: 40px; font-weight: bold; color: #fff; }
+
+  button {
+    font-family: inherit;
+    font-size: 18px;
+    cursor: pointer;
+    border: none;
+    border-radius: 14px;
+    padding: 12px 28px;
+    min-width: 200px;
+    color: #1e293b;
+    background: #fde047;
+    box-shadow: 0 5px 0 #ca8a04;
+    transition: transform .08s, box-shadow .08s;
+  }
+  button:active { transform: translateY(4px); box-shadow: 0 1px 0 #ca8a04; }
+  button.alt { background: #38bdf8; box-shadow: 0 5px 0 #0369a1; color: #0c4a6e; }
+  button.red { background: #f87171; box-shadow: 0 5px 0 #b91c1c; color: #450a0a; }
+  button.green { background: #4ade80; box-shadow: 0 5px 0 #15803d; color: #052e16; }
+
+  .char-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+    max-width: 320px;
+  }
+  .char {
+    min-width: 0;
+    padding: 10px 4px;
+    background: #1e293b;
+    color: #fff;
+    box-shadow: 0 4px 0 #0f172a;
+    border: 3px solid transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+  }
+  .char .em { font-size: 34px; }
+  .char.sel { border-color: #fde047; background: #334155; }
+
+  .hud-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 5;
+    min-width: 0;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 10px;
+    font-size: 18px;
+    background: rgba(255,255,255,.85);
+    box-shadow: none;
+  }
+  .hud-btn:active { transform: none; }
+</style>
+</head>
+<body>
+
+  <!-- ===== اوپر والا ایڈ: یہاں اپنا Adsterra کوڈ لگائیں ===== -->
+  <!-- ================================================================
+       یہاں ایڈسٹیرا (Adsterra) کا ایڈ کوڈ پیسٹ کریں
+       ================================================================ -->
+  <div class="ad-slot" id="adTop">
+    <div class="ad-note">یہاں ایڈسٹیرا کا ایڈ کوڈ لگانا ہے</div>
+  </div>
+
+  <div class="game" id="game">
+    <canvas id="c"></canvas>
+
+    <!-- ===== مینو ===== -->
+    <div class="screen" id="menu">
+      <h1>سکے پکڑو 🪙</h1>
+      <p class="sub">بم سے بچیں، سکے اور ہیرے پکڑیں</p>
+      <p class="sub">کردار: <span id="menuChar">🐻</span></p>
+      <p class="sub">بہترین اسکور: <span id="menuBest">0</span></p>
+      <button id="btnPlay">کھیلیں ▶</button>
+      <button class="alt" id="btnChars">کردار چنیں 🎭</button>
+      <button class="alt" id="btnSound">آواز: آن 🔊</button>
+      <div class="ad-slot" id="adMenu">
+        <!-- یہاں دوسرا ایڈ کوڈ لگا سکتے ہیں -->
+        <div class="ad-note">یہاں ایڈسٹیرا کا ایڈ کوڈ لگانا ہے</div>
+      </div>
+    </div>
+
+    <!-- ===== کردار چننے کی اسکرین ===== -->
+    <div class="screen hidden" id="chars">
+      <h2>اپنا کردار چنیں</h2>
+      <div class="char-grid" id="charGrid"></div>
+      <button class="green" id="btnStartFromChars">شروع کریں ▶</button>
+      <button class="alt" id="btnCharsBack">واپس</button>
+    </div>
+
+    <!-- ===== وقفہ (Pause) ===== -->
+    <div class="screen hidden" id="pause">
+      <h2>وقفہ ⏸</h2>
+      <button id="btnResume">جاری رکھیں ▶</button>
+      <button class="alt" id="btnRestart">دوبارہ شروع 🔄</button>
+      <button class="alt" id="btnSoundP">آواز: آن 🔊</button>
+      <button class="red" id="btnMenuP">مین مینو 🏠</button>
+    </div>
+
+    <!-- ===== گیم اوور ===== -->
+    <div class="screen hidden" id="over">
+      <h2>گیم اوور 💥</h2>
+      <p class="sub">آپ کا اسکور</p>
+      <div class="big" id="finalScore">0</div>
+      <p class="sub" id="recordMsg"></p>
+      <p class="sub">بہترین: <span id="overBest">0</span></p>
+      <button class="green" id="btnAgain">دوبارہ کھیلیں 🔁</button>
+      <button class="alt" id="btnMenuO">مین مینو 🏠</button>
+      <div class="ad-slot">
+        <!-- یہاں گیم اوور کے لیے ایڈ کوڈ لگا سکتے ہیں -->
+        <div class="ad-note">یہاں ایڈسٹیرا کا ایڈ کوڈ لگانا ہے</div>
+      </div>
+    </div>
+
+    <button class="hud-btn hidden" id="btnPauseHud" title="وقفہ">⏸</button>
+  </div>
+
+  <!-- ===== نیچے والا ایڈ: یہاں اپنا Adsterra کوڈ لگائیں ===== -->
+  <!-- ================================================================
+       یہاں ایڈسٹیرا (Adsterra) کا ایڈ کوڈ پیسٹ کریں
+       ================================================================ -->
+  <div class="ad-slot" id="adBottom">
+    <div class="ad-note">یہاں ایڈسٹیرا کا ایڈ کوڈ لگانا ہے</div>
+  </div>
+
+<script>
+(() => {
+  // ===== کینوس اور بنیادی ترتیب =====
+  const W = 400, H = 600;
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  canvas.width = W;
+  canvas.height = H;
+
+  const CHARS = [
+    { name: 'ببو',    emoji: '🐻' },
+    { name: 'لومڑی',  emoji: '🦊' },
+    { name: 'بلی',    emoji: '🐱' },
+    { name: 'روبوٹ',  emoji: '🤖' },
+    { name: 'پانڈا',  emoji: '🐼' },
+    { name: 'ڈریگن',  emoji: '🐲' },
+  ];
+
+  // ===== حالت =====
+  let charIndex = 0;
+  let state = 'menu';        // menu | chars | play | pause | over
+  let score = 0, lives = 3;
+  let best = getBest();
+  let items = [], parts = [];
+  let px = W / 2;
+  let keys = { left: false, right: false };
+  let pointerX = null;
+  let spawnT = 0, lastT = 0;
+  let soundOn = true;
+  const BASKET_Y = H - 70;
+
+  const stars = Array.from({ length: 60 }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    r: Math.random() * 1.8 + 0.4, s: Math.random() * 30 + 10
+  }));
+
+  // ===== ذخیرہ (بہترین اسکور) =====
+  function getBest() {
+    try { return +localStorage.getItem('cc_best') || 0; } catch (e) { return 0; }
+  }
+  function setBest(v) {
+    try { localStorage.setItem('cc_best', String(v)); } catch (e) {}
+  }
+
+  // ===== آواز (Web Audio، کسی فائل کی ضرورت نہیں) =====
+  let audioCtx = null;
+  function beep(freq, dur = 0.12, type = 'sine', vol = 0.15) {
+    if (!soundOn) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t + dur);
+    } catch (e) {}
+  }
+  const sfx = {
+    coin: () => { beep(880, .1); setTimeout(() => beep(1320, .08), 60); },
+    gem:  () => { beep(1046, .12, 'triangle'); setTimeout(() => beep(1568, .15, 'triangle'), 80); },
+    bomb: () => beep(120, .45, 'sawtooth', .2),
+    start: () => { beep(523, .1); setTimeout(() => beep(784, .15), 100); },
+    over: () => { beep(330, .25, 'square', .1); setTimeout(() => beep(220, .5, 'square', .1), 250); },
+  };
+
+  // ===== مدد گار =====
+  function show(id) {
+    ['menu', 'chars', 'pause', 'over'].forEach(s =>
+      document.getElementById(s).classList.toggle('hidden', s !== id));
+    document.getElementById('btnPauseHud').classList.toggle('hidden', id !== null);
+  }
+  function setSoundLabels() {
+    const t = soundOn ? 'آواز: آن 🔊' : 'آواز: آف 🔇';
+    document.getElementById('btnSound').textContent = t;
+    document.getElementById('btnSoundP').textContent = t;
+  }
+  function updateMenu() {
+    document.getElementById('menuBest').textContent = best;
+    document.getElementById('menuChar').textContent = CHARS[charIndex].emoji + ' ' + CHARS[charIndex].name;
+  }
+  function burst(x, y, color, n = 14) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = Math.random() * 180 + 60;
+      parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, life: 1, color });
+    }
+  }
+
+  // ===== گیم کنٹرول =====
+  function startGame() {
+    score = 0; lives = 3;
+    items = []; parts = [];
+    px = W / 2; spawnT = 0;
+    state = 'play';
+    show(null);
+    sfx.start();
+    updateHUD();
+  }
+  function pauseGame() {
+    if (state !== 'play') return;
+    state = 'pause';
+    show('pause');
+  }
+  function resumeGame() {
+    if (state !== 'pause') return;
+    state = 'play';
+    show(null);
+  }
+  function gameOver() {
+    state = 'over';
+    sfx.over();
+    const newRecord = score > best;
+    if (newRecord) { best = score; setBest(best); }
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('overBest').textContent = best;
+    document.getElementById('recordMsg').textContent = newRecord ? '🎉 نیا ریکارڈ!' : '';
+    show('over');
+  }
+  function goMenu() {
+    state = 'menu';
+    updateMenu();
+    show('menu');
+  }
+
+  function spawn() {
+    const roll = Math.random();
+    let type = 'coin';
+    if (roll < 0.12) type = 'gem';
+    else if (roll < 0.12 + 0.22 + Math.min(0.12, score * 0.002)) type = 'bomb';
+    items.push({
+      x: 30 + Math.random() * (W - 60),
+      y: -30,
+      r: type === 'gem' ? 16 : 18,
+      type,
+      sp: 0.8 + Math.random() * 0.4,
+    });
+  }
+
+  function update(dt) {
+    if (state !== 'play') return;
+
+    // حرکت
+    const speed = 420;
+    if (keys.left) px -= speed * dt;
+    if (keys.right) px += speed * dt;
+    if (pointerX !== null) px += (pointerX - px) * Math.min(1, dt * 15);
+    px = Math.max(40, Math.min(W - 40, px));
+
+    // سپان
+    spawnT += dt * 1000;
+    const gap = Math.max(380, 900 - score * 6);
+    if (spawnT > gap) { spawnT = 0; spawn(); }
+
+    // گرنے کی رفتار (اسکور کے ساتھ بڑھتی ہے)
+    const fall = 150 + Math.min(260, score * 4);
+
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      it.y += fall * it.sp * dt;
+
+      // پکڑنا
+      if (it.y + it.r >= BASKET_Y && it.y - it.r <= BASKET_Y + 20 && Math.abs(it.x - px) < 48) {
+        if (it.type === 'bomb') {
+          lives--;
+          burst(it.x, it.y, '#f87171', 20);
+          sfx.bomb();
+          items.splice(i, 1);
+          updateHUD();
+          if (lives <= 0) { gameOver(); return; }
+        } else if (it.type === 'gem') {
+          score += 5;
+          burst(it.x, it.y, '#38bdf8', 18);
+          sfx.gem();
+          items.splice(i, 1);
+          updateHUD();
+        } else {
+          score += 1;
+          burst(it.x, it.y, '#fde047', 12);
+          sfx.coin();
+          items.splice(i, 1);
+          updateHUD();
+        }
+        continue;
+      }
+
+      // نیچے نکل گیا
+      if (it.y - it.r > H) items.splice(i, 1);
+    }
+
+    // ذرات
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += 300 * dt;
+      p.life -= dt * 1.8;
+      if (p.life <= 0) parts.splice(i, 1);
+    }
+  }
+
+  // ===== HUD =====
+  function updateHUD() { /* اسکور اور لائیفز کینوس پر ہی بنتے ہیں */ }
+
+  // ===== ڈرائنگ =====
+  function drawBackground(t) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#1e1b4b');
+    g.addColorStop(0.6, '#312e81');
+    g.addColorStop(1, '#0f172a');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#fff';
+    for (const s of stars) {
+      s.y += s.s * 0.016;
+      if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
+      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t / 500 + s.x);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // زمین
+    ctx.fillStyle = 'rgba(34,197,94,.25)';
+    ctx.fillRect(0, H - 22, W, 22);
+  }
+
+  function drawItems() {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const it of items) {
+      ctx.font = (it.type === 'gem' ? 30 : 32) + 'px serif';
+      const e = it.type === 'coin' ? '🪙' : it.type === 'gem' ? '💎' : '💣';
+      ctx.fillText(e, it.x, it.y);
+    }
+  }
+
+  function drawPlayer() {
+    // ٹوکری
+    ctx.fillStyle = 'rgba(255,255,255,.15)';
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(px - 52, BASKET_Y - 6, 104, 26, 10) : ctx.rect(px - 52, BASKET_Y - 6, 104, 26);
+    ctx.fill();
+
+    // کردار
+    ctx.font = '52px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(CHARS[charIndex].emoji, px, BASKET_Y + 14);
+  }
+
+  function drawParticles() {
+    for (const p of parts) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHUD() {
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 22px Tahoma, sans-serif';
+    ctx.fillStyle = '#fde047';
+    ctx.fillText('اسکور: ' + score, 14, 14);
+
+    ctx.font = '13px Tahoma, sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText('بہترین: ' + best, 14, 42);
+
+    ctx.textAlign = 'right';
+    ctx.font = '22px serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('❤️'.repeat(Math.max(0, lives)) || '—', W - 60, 14);
+  }
+
+  function draw(t) {
+    drawBackground(t);
+    if (state === 'menu' || state === 'chars') {
+      // مینو کے پیچھے خالی ٹوکری کا عکس
+      drawPlayer();
+      return;
+    }
+    drawItems();
+    drawParticles();
+    drawPlayer();
+    drawHUD();
+  }
+
+  // ===== لوپ =====
+  function loop(t) {
+    const dt = Math.min(0.033, (t - lastT) / 1000 || 0);
+    lastT = t;
+    update(dt);
+    draw(t);
+    requestAnimationFrame(loop);
+  }
+
+  // ===== ان پٹ: کی بورڈ =====
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+      if (state === 'play') pauseGame();
+      else if (state === 'pause') resumeGame();
+    }
+    if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+  });
+  document.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+  });
+
+  // ===== ان پٹ: ماؤس / ٹچ =====
+  function setPointer(e) {
+    const r = canvas.getBoundingClientRect();
+    pointerX = (e.clientX - r.left) * (W / r.width);
+  }
+  canvas.addEventListener('pointerdown', e => { setPointer(e); });
+  canvas.addEventListener('pointermove', e => { if (state === 'play') setPointer(e); });
+  canvas.addEventListener('pointerup', () => { pointerX = null; });
+  canvas.addEventListener('pointerleave', () => { pointerX = null; });
+  canvas.addEventListener('pointercancel', () => { pointerX = null; });
+
+  // ===== بٹن =====
+  const $ = id => document.getElementById(id);
+
+  $('btnPlay').onclick = startGame;
+  $('btnChars').onclick = () => { renderChars(); show('chars'); state = 'chars'; };
+  $('btnSound').onclick = () => { soundOn = !soundOn; setSoundLabels(); };
+  $('btnSoundP').onclick = () => { soundOn = !soundOn; setSoundLabels(); };
+
+  $('btnStartFromChars').onclick = startGame;
+  $('btnCharsBack').onclick = goMenu;
+
+  $('btnPauseHud').onclick = pauseGame;
+  $('btnResume').onclick = resumeGame;
+  $('btnRestart').onclick = startGame;
+  $('btnMenuP').onclick = goMenu;
+
+  $('btnAgain').onclick = startGame;
+  $('btnMenuO').onclick = goMenu;
+
+  // کردار کا انتخاب
+  function renderChars() {
+    const grid = $('charGrid');
+    grid.innerHTML = '';
+    CHARS.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'char' + (i === charIndex ? ' sel' : '');
+      b.innerHTML = '<span class="em">' + c.emoji + '</span><span>' + c.name + '</span>';
+      b.onclick = () => { charIndex = i; renderChars(); };
+      grid.appendChild(b);
+    });
+  }
+
+  // جب ٹیب چھپ جائے تو خودکار وقفہ
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseGame();
+  });
+
+  // ===== شروعات =====
+  renderChars();
+  setSoundLabels();
+  updateMenu();
+  show('menu');
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
